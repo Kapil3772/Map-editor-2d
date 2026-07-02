@@ -70,6 +70,45 @@ class GameImage {
   }
 }
 
+class GameButton extends Rect {
+  constructor(game, x, y, w, h, text) {
+    super(x, y, w, h);
+    this.game = game;
+    this.text = text;
+    this.bgColor = "#369E56";
+    this.hoverColor = "#46C26A";
+    this.textColor = "white";
+    this.borderColor = "white";
+    this.hovered = false;
+  }
+  containsPoint(x, y) {
+    return (
+      x >= this.x && x <= this.x + this.w && y >= this.y && y <= this.y + this.h
+    );
+  }
+  update() {
+    this.hovered = this.containsPoint(
+      this.game.globalInputs.mouseX,
+      this.game.globalInputs.mouseY,
+    );
+  }
+  isClicked() {
+    return this.game.globalInputs.attackPressed && this.hovered;
+  }
+  render(ctx) {
+    ctx.fillStyle = this.hovered ? this.hoverColor : this.bgColor;
+    ctx.fillRect(this.x, this.y, this.w, this.h);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = this.borderColor;
+    ctx.strokeRect(this.x, this.y, this.w, this.h);
+    ctx.fillStyle = this.textColor;
+    ctx.font = "bold 28px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.text, this.x + this.w / 2, this.y + this.h / 2);
+  }
+}
+
 class Tile extends PhysicsRect {
   constructor(x, y, w, h, camera, img) {
     super(x, y, w, h);
@@ -142,6 +181,8 @@ class TileMap {
     this.offGridTilesData = null;
     this.onGridTiles = new Map();
     this.offGridTiles = new Map();
+    this.onGridTilesData = new Map();
+    this.offGridTilesData = new Map();
     // for (let i = 0; i < 20; i++) {
     //   this.onGridTiles.set(
     //     "" + i + ",6",
@@ -354,9 +395,7 @@ class TileCollisionHandeler {
     let gridBottom = Math.ceil(this.entity.bottom() / this.tileH);
     for (let i = gridLeft; i <= gridRight; i++) {
       for (let j = gridTop; j <= gridBottom; j++) {
-        const tile = this.entity.game.currentMode.tileMap.onGridTiles.get(
-          `${i},${j}`,
-        );
+        const tile = this.entity.game.tileMap.onGridTiles.get(`${i},${j}`);
         if (tile != null) {
           this.physicsRectAround.push(tile);
         }
@@ -374,8 +413,9 @@ class Player extends PhysicsRect {
   init() {
     this.xDirection = 0;
     this.yDirection = 0;
-    this.xVelocity = 50; //px per second
-    this.yVelocity = 0; //px per second
+    this.baseVelocity = 250;
+    this.xVelocity = this.baseVelocity; //px per second
+    this.yVelocity = this.baseVelocity; //px per second
 
     //visuals
     this.img = null;
@@ -389,17 +429,16 @@ class Player extends PhysicsRect {
     let up = this.game.globalInputs.upPressed ? 1 : 0;
     this.xDirection = right - left;
     this.yDirection = bottom - up;
+    if (this.xDirection != 0 && this.yDirection != 0) {
+      this.xVelocity = Math.cos(Math.PI / 4) * this.baseVelocity;
+      this.yVelocity = Math.sin(Math.PI / 4) * this.baseVelocity;
+    } else {
+      this.xVelocity = this.baseVelocity;
+      this.yVelocity = this.baseVelocity;
+    }
     if (this.xDirection != 0) {
       this.flip = this.xDirection == 1 ? true : false; //true means player is facing right
     }
-    //PLAYER SPRINTING CODE
-    // if (this.game.globalInputs.shiftPressed && this.direction != 0) {
-    //   this.isRunning = true;
-    //   this.runningSpeedFactor = 2.6;
-    // } else {
-    //   this.isRunning = false;
-    //   this.runningSpeedFactor = 1;
-    // }
 
     this.x = this.x + this.xVelocity * dt * this.xDirection;
 
@@ -435,8 +474,7 @@ class Camera extends Rect {
   }
   update(dt) {
     this.x += (this.entity.centerX() - this.x) * dt * this.xSmoothnessFactor;
-    this.y +=
-      (this.entity.centerY() - 30 - this.y) * dt * this.ySmoothnessFactor;
+    this.y += (this.entity.centerY() - this.y) * dt * this.ySmoothnessFactor;
     this.camOffsetX = this.game.vCanvasW / 2 - this.x;
     this.camOffsetY = this.game.vCanvasH / 2 - this.y;
 
@@ -445,7 +483,12 @@ class Camera extends Rect {
   }
   render(ctx) {
     ctx.fillStyle = "green";
-    ctx.fillRect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
+    ctx.fillRect(
+      this.x - this.w / 2 + this.camOffsetX,
+      this.y - this.h / 2 + this.camOffsetY,
+      this.w,
+      this.h,
+    );
   }
 }
 
@@ -461,6 +504,9 @@ class GameInputs {
     this.leftClickPressed = false;
     this.rightClickPressed = false;
     this.holdUpdate = false;
+    this.gridModePressed = false;
+    this.gridModePressHandeled = false;
+    this.addedOffGridTile = false;
     this.mouseX = 0;
     this.mouseY = 0;
   }
@@ -475,6 +521,78 @@ class GameInputs {
     this.leftClickPressed = false;
     this.rightClickPressed = false;
     this.holdUpdate = false;
+  }
+}
+
+class Pointer {
+  constructor(game, x, y, camera) {
+    this.game = game;
+    this.x = x;
+    this.y = y;
+    this.gridX = 0;
+    this.gridY = 0;
+    this.camera = camera;
+    this.tileW = this.game.tileMap.tileW;
+    this.tileH = this.game.tileMap.tileH;
+
+    //states
+    this.onGrid = false;
+  }
+  update(dt) {
+    this.x = this.game.globalInputs.mouseX - this.camera.camOffsetX;
+    this.y = this.game.globalInputs.mouseY - this.camera.camOffsetY;
+
+    this.gridX = Math.floor(this.x / this.tileW);
+    this.gridY = Math.floor(this.y / this.tileH);
+    this.onGrid = this.game.globalInputs.gridModePressed;
+
+    if (this.game.globalInputs.leftClickPressed) {
+      if (this.onGrid) {
+        this.addOngridTile();
+      } else {
+        if (!this.game.globalInputs.addedOffGridTile) {
+          this.game.globalInputs.addedOffGridTile = true;
+          this.addOffGridTile();
+        }
+      }
+    }
+  }
+  render(ctx) {
+    ctx.fillStyle = "rgba(0,255,255,0.4)";
+    if (this.onGrid) {
+      ctx.fillRect(
+        this.gridX * this.tileW + this.camera.camOffsetX,
+        this.gridY * this.tileH + this.camera.camOffsetY,
+        this.tileW,
+        this.tileH,
+      );
+    } else {
+      ctx.fillRect(
+        this.x + this.camera.camOffsetX,
+        this.y + this.camera.camOffsetY,
+        this.tileW,
+        this.tileH,
+      );
+    }
+  }
+  addOngridTile() {
+    this.game.tileMap.onGridTiles.set(
+      this.gridX + "," + this.gridY,
+      new Tile(
+        this.gridX * this.tileW,
+        this.gridY * this.tileH,
+        this.tileW,
+        this.tileH,
+        this.camera,
+        null,
+      ),
+    );
+  }
+  addOffGridTile() {
+    this.game.tileMap.offGridTiles.set(
+      this.x + "," + this.y,
+      new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
+    );
   }
 }
 
@@ -511,9 +629,15 @@ class Editor {
     //Entities
     this.playerW = 16;
     this.playerH = 42;
-    this.player = new Player(this,0,0,this.playerW,this.playerH);
+    this.player = new Player(this, 0, 0, this.playerW, this.playerH);
     //Camera
-    this.camera = new Camera(0,0,5,5,this,this.player);
+    this.camera = new Camera(0, 0, 5, 5, this, this.player);
+
+    //TILEMAP
+    this.tileMap = new TileMap(this, 32, 32, this.camera);
+
+    //Pointer
+    this.pointer = new Pointer(this, 0, 0, this.camera);
 
     //main loop dependenciesa
     this.nowMs = performance.now();
@@ -552,6 +676,7 @@ class Editor {
     window.addEventListener("mouseup", (e) => {
       if (e.button === 0) {
         this.globalInputs.leftClickPressed = false;
+        this.globalInputs.addedOffGridTile = false;
       } else if (e.button === 2) {
         this.globalInputs.rightClickPressed = false;
       }
@@ -570,11 +695,20 @@ class Editor {
         case "KeyS":
           this.globalInputs.downPressed = true;
           break;
+        case "KeyG":
+          if (!this.globalInputs.gridModePressHandeled) {
+            console.log("pressed");
+            this.globalInputs.gridModePressHandeled = true;
+            this.globalInputs.gridModePressed =
+              !this.globalInputs.gridModePressed;
+          }
+          break;
 
         case "Enter":
           this.globalInputs.enterPressed = true;
           break;
         case "ShiftLeft":
+          break;
         case "ShiftRight":
           this.globalInputs.shiftPressed = true;
           break;
@@ -596,11 +730,15 @@ class Editor {
         case "KeyS":
           this.globalInputs.downPressed = false;
           break;
+        case "KeyG":
+          this.globalInputs.gridModePressHandeled = false;
+          break;
 
         case "Enter":
           this.globalInputs.enterPressed = false;
           break;
         case "ShiftLeft":
+          break;
         case "ShiftRight":
           this.globalInputs.shiftPressed = false;
           break;
@@ -609,7 +747,6 @@ class Editor {
   }
   async loadAssets() {
     this.loader = new GameImage();
-
     const [grass, stone, decor, largeDecor] = await Promise.all([
       this.loader.loadImagesFromFolder("assets/tiles/grass/", 9),
       this.loader.loadImagesFromFolder("assets/tiles/stone/", 9),
@@ -636,23 +773,66 @@ class Editor {
     requestAnimationFrame(() => this.gameloop());
   }
   update(dt) {
-    if(!this.assetLoaded){
-        return;
+    if (!this.assetLoaded) {
+      return;
     }
     this.player.update(dt);
+    this.camera.update(dt);
+    this.tileMap.update(dt);
+    this.pointer.update(dt);
   }
   render(ctx) {
     ctx.clearRect(0, 0, this.vCanvasW, this.vCanvasH);
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, this.vCanvasW, this.vCanvasH);
 
-    if(!this.assetLoaded){
-        return;
+    if (!this.assetLoaded) {
+      return;
     }
+    this.renderWorldAxis(ctx);
     this.player.render(ctx);
+    this.camera.render(ctx);
+    this.pointer.render(ctx);
+    this.tileMap.renderTiles(ctx);
+    this.tileMap.renderDecors(ctx);
+    this.renderWorldUi(ctx);
     //rendering vCtx into ctx
     this.ctx.clearRect(0, 0, this.canvasW, this.canvasH);
     this.ctx.drawImage(this.vCanvas, 0, 0, this.canvasW, this.canvasH);
+  }
+  renderWorldAxis(ctx) {
+    ctx.strokeStyle = "cyan";
+    const vx = this.camera.camOffsetX;
+    const vy = this.camera.camOffsetY;
+    ctx.beginPath();
+    ctx.moveTo(vx, vy - 5000);
+    ctx.lineTo(vx, vy + 10000);
+    ctx.stroke();
+    ctx.closePath();
+    ctx.beginPath();
+    ctx.moveTo(vx - 5000, vy);
+    ctx.lineTo(vx + 10000, vy);
+    ctx.stroke();
+    ctx.closePath();
+  }
+  renderWorldUi(ctx) {
+    ctx.fillStyle = "rgba(0,255,255,1)";
+    ctx.font = "10px bold";
+    const pointerMode = this.pointer.onGrid ? "grid" : "off-grid";
+    ctx.fillText("Pointer Mode : " + pointerMode, 10, this.vCanvasH - 10);
+    ctx.fillText(
+      "x : " +
+        Math.floor(this.pointer.x) +
+        " y : " +
+        Math.floor(this.pointer.y),
+      115,
+      this.vCanvasH - 10,
+    );
+    ctx.fillText(
+      "gx : " + this.pointer.gridX + " gy : " + this.pointer.gridY,
+      185,
+      this.vCanvasH - 10,
+    );
   }
 }
 
