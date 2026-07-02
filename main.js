@@ -88,8 +88,8 @@ class GameButton extends Rect {
   }
   update() {
     this.hovered = this.containsPoint(
-      this.game.globalInputs.mouseX,
-      this.game.globalInputs.mouseY,
+      this.game.globalInputs.mouseX * 2,
+      this.game.globalInputs.mouseY * 2,
     );
   }
   isClicked() {
@@ -102,11 +102,17 @@ class GameButton extends Rect {
     ctx.strokeStyle = this.borderColor;
     ctx.strokeRect(this.x, this.y, this.w, this.h);
     ctx.fillStyle = this.textColor;
-    ctx.font = "8px Arial";
+    ctx.font = "bold 20px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(this.text, this.x + this.w / 2, this.y + this.h / 2);
     ctx.restore();
+  }
+}
+
+class Menu extends GameButton {
+  constructor(game, x, y, w, h) {
+    super(x, y, w, h);
   }
 }
 
@@ -414,7 +420,7 @@ class Player extends PhysicsRect {
   init() {
     this.xDirection = 0;
     this.yDirection = 0;
-    this.baseVelocity = 250;
+    this.baseVelocity = 350;
     this.xVelocity = this.baseVelocity; //px per second
     this.yVelocity = this.baseVelocity; //px per second
 
@@ -452,13 +458,13 @@ class Player extends PhysicsRect {
   render(ctx) {
     const camera = this.game.camera;
 
-    ctx.fillStyle = "cyan";
-    ctx.fillRect(
-      this.x + camera.camOffsetX,
-      this.y + camera.camOffsetY,
-      this.w,
-      this.h,
-    );
+    // ctx.fillStyle = "cyan";
+    // ctx.fillRect(
+    //   this.x + camera.camOffsetX,
+    //   this.y + camera.camOffsetY,
+    //   this.w,
+    //   this.h,
+    // );
   }
   reset() {}
 }
@@ -538,6 +544,11 @@ class Pointer {
 
     //states
     this.onGrid = false;
+
+    //image
+    this.tileType = "grass";
+    this.tileVariant = 0;
+    this.img = null;
   }
   update(dt) {
     this.x = this.game.globalInputs.mouseX - this.camera.camOffsetX;
@@ -565,41 +576,87 @@ class Pointer {
     }
   }
   render(ctx) {
-    ctx.fillStyle = "rgba(0,255,255,0.4)";
-    if (this.onGrid) {
-      ctx.fillRect(
-        this.gridX * this.tileW + this.camera.camOffsetX,
-        this.gridY * this.tileH + this.camera.camOffsetY,
-        this.tileW,
-        this.tileH,
-      );
-    } else {
-      ctx.fillRect(
-        this.x + this.camera.camOffsetX,
-        this.y + this.camera.camOffsetY,
-        this.tileW,
-        this.tileH,
-      );
+    if (this.tileType != null && this.tileVariant != null) {
+      this.img = this.game.tileVariantRegistry[this.tileType][this.tileVariant];
+      if (!this.img) {
+        ctx.fillStyle = "rgba(0,255,255,0.4)";
+        if (this.onGrid) {
+          ctx.fillRect(
+            this.gridX * this.tileW + this.camera.camOffsetX,
+            this.gridY * this.tileH + this.camera.camOffsetY,
+            this.tileW,
+            this.tileH,
+          );
+        } else {
+          ctx.fillRect(
+            this.x + this.camera.camOffsetX,
+            this.y + this.camera.camOffsetY,
+            this.tileW,
+            this.tileH,
+          );
+        }
+      } else {
+        ctx.globalAlpha = 0.5;
+        if (this.onGrid) {
+          ctx.drawImage(
+            this.img,
+            this.gridX * this.tileW + this.camera.camOffsetX,
+            this.gridY * this.tileH + this.camera.camOffsetY,
+            this.tileW,
+            this.tileH,
+          );
+        } else {
+          ctx.drawImage(
+            this.img,
+            this.x + this.camera.camOffsetX,
+            this.y + this.camera.camOffsetY,
+            this.tileW,
+            this.tileH,
+          );
+        }
+        ctx.globalAlpha = 1;
+      }
     }
   }
   addOngridTile() {
-    this.game.tileMap.onGridTiles.set(
-      this.gridX + "," + this.gridY,
-      new Tile(
-        this.gridX * this.tileW,
-        this.gridY * this.tileH,
-        this.tileW,
-        this.tileH,
-        this.camera,
-        null,
-      ),
-    );
+    if (this.tileType != null && this.tileVariant != null) {
+      this.game.tileMap.onGridTiles.set(
+        this.gridX + "," + this.gridY,
+        new Tile(
+          this.gridX * this.tileW,
+          this.gridY * this.tileH,
+          this.tileW,
+          this.tileH,
+          this.camera,
+          this.img,
+        ),
+      );
+    } else {
+      this.game.tileMap.onGridTiles.set(
+        this.gridX + "," + this.gridY,
+        new Tile(
+          this.gridX * this.tileW,
+          this.gridY * this.tileH,
+          this.tileW,
+          this.tileH,
+          this.camera,
+          null,
+        ),
+      );
+    }
   }
   addOffGridTile() {
-    this.game.tileMap.offGridTiles.set(
-      this.x + "," + this.y,
-      new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
-    );
+    if (this.tileType != null && this.tileVariant != null) {
+      this.game.tileMap.offGridTiles.set(
+        this.gridX + "," + this.gridY,
+        new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, this.img),
+      );
+    } else {
+      this.game.tileMap.offGridTiles.set(
+        this.gridX + "," + this.gridY,
+        new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
+      );
+    }
   }
   removeOngridTile() {
     this.game.tileMap.onGridTiles.delete(this.gridX + "," + this.gridY);
@@ -651,7 +708,7 @@ class Editor {
 
     //ui
     //currrent Tile button
-    this.button = new GameButton(this, -2, 10, 15, 25, ">");
+    this.button = new GameButton(this, -4, 20, 30, 50, ">");
 
     //main loop dependenciesa
     this.nowMs = performance.now();
@@ -804,21 +861,22 @@ class Editor {
     if (!this.assetLoaded) {
       return;
     }
-    this.renderWorldAxis(ctx);
     this.player.render(ctx);
     this.camera.render(ctx);
-    this.pointer.render(ctx);
     this.tileMap.renderTiles(ctx);
     this.tileMap.renderDecors(ctx);
-    this.renderWorldUi(ctx);
+    this.pointer.render(ctx);
     //rendering vCtx into ctx
     this.ctx.clearRect(0, 0, this.canvasW, this.canvasH);
     this.ctx.drawImage(this.vCanvas, 0, 0, this.canvasW, this.canvasH);
+
+    this.renderWorldAxis(this.ctx);
+    this.renderWorldUi(this.ctx);
   }
   renderWorldAxis(ctx) {
     ctx.strokeStyle = "cyan";
-    const vx = this.camera.camOffsetX;
-    const vy = this.camera.camOffsetY;
+    const vx = this.camera.camOffsetX * 2;
+    const vy = this.camera.camOffsetY * 2;
     ctx.beginPath();
     ctx.moveTo(vx, vy - 5000);
     ctx.lineTo(vx, vy + 10000);
@@ -832,21 +890,22 @@ class Editor {
   }
   renderWorldUi(ctx) {
     ctx.fillStyle = "rgba(0,255,255,1)";
-    ctx.font = "10px bold";
+    ctx.font = "20px bold";
+    const drawY = this.canvasH - 20;
     const pointerMode = this.pointer.onGrid ? "grid" : "off-grid";
-    ctx.fillText("Pointer Mode : " + pointerMode, 10, this.vCanvasH - 10);
+    ctx.fillText("Pointer Mode : " + pointerMode, 10, drawY);
     ctx.fillText(
       "x : " +
         Math.floor(this.pointer.x) +
         " y : " +
         Math.floor(this.pointer.y),
-      115,
-      this.vCanvasH - 10,
+      220,
+      drawY,
     );
     ctx.fillText(
       "gx : " + this.pointer.gridX + " gy : " + this.pointer.gridY,
-      185,
-      this.vCanvasH - 10,
+      380,
+      drawY,
     );
 
     //button
