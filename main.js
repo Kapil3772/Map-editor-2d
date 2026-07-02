@@ -365,6 +365,64 @@ class TileCollisionHandeler {
   }
 }
 
+class Player extends PhysicsRect {
+  constructor(game, x, y, w, h) {
+    super(x, y, w, h);
+    this.game = game;
+    this.init();
+  }
+  init() {
+    this.xDirection = 0;
+    this.yDirection = 0;
+    this.xVelocity = 50; //px per second
+    this.yVelocity = 0; //px per second
+
+    //visuals
+    this.img = null;
+    this.flip = false;
+  }
+  update(dt) {
+    // horizontal movement
+    let left = this.game.globalInputs.leftPressed ? 1 : 0;
+    let right = this.game.globalInputs.rightPressed ? 1 : 0;
+    let bottom = this.game.globalInputs.downPressed ? 1 : 0;
+    let up = this.game.globalInputs.upPressed ? 1 : 0;
+    this.xDirection = right - left;
+    this.yDirection = bottom - up;
+    if (this.xDirection != 0) {
+      this.flip = this.xDirection == 1 ? true : false; //true means player is facing right
+    }
+    //PLAYER SPRINTING CODE
+    // if (this.game.globalInputs.shiftPressed && this.direction != 0) {
+    //   this.isRunning = true;
+    //   this.runningSpeedFactor = 2.6;
+    // } else {
+    //   this.isRunning = false;
+    //   this.runningSpeedFactor = 1;
+    // }
+
+    this.x = this.x + this.xVelocity * dt * this.xDirection;
+
+    this.y = this.y + this.yVelocity * dt * this.yDirection;
+
+    this.prevX = this.x;
+    this.prevY = this.y;
+  }
+
+  render(ctx) {
+    const camera = this.game.camera;
+
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(
+      this.x + camera.camOffsetX,
+      this.y + camera.camOffsetY,
+      this.w,
+      this.h,
+    );
+  }
+  reset() {}
+}
+
 class Camera extends Rect {
   constructor(x, y, w, h, game, relativeEntity) {
     super(x, y, w, h);
@@ -386,8 +444,8 @@ class Camera extends Rect {
     this.game.gameRenderingRect.y = this.y - this.game.gameRenderingRect.h / 2;
   }
   render(ctx) {
-    // ctx.fillStyle = "green";
-    // ctx.fillRect(this.x - this.w/2, this.y - this.h/2,this.w,this.h);
+    ctx.fillStyle = "green";
+    ctx.fillRect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
   }
 }
 
@@ -440,11 +498,6 @@ class Editor {
     this.init();
   }
   async init() {
-    //global effects
-    this.screenShakeStrength = 0;
-    this.screenShakeDecayVelocity = 70;
-    this.shakeX = 0;
-    this.shakeY = 0;
     //game inputs
     this.gameRenderingRect = new Rect(
       -50,
@@ -455,6 +508,13 @@ class Editor {
     this.globalInputs = new GameInputs();
     this.bindInputs();
 
+    //Entities
+    this.playerW = 16;
+    this.playerH = 42;
+    this.player = new Player(this,0,0,this.playerW,this.playerH);
+    //Camera
+    this.camera = new Camera(0,0,5,5,this,this.player);
+
     //main loop dependenciesa
     this.nowMs = performance.now();
     this.prevMs = this.nowMs;
@@ -463,7 +523,7 @@ class Editor {
 
     //asset loading
     await this.loadAssets();
-
+    this.assetLoaded = true;
   }
   bindInputs() {
     this.canvas.addEventListener("mousemove", (e) => {
@@ -550,22 +610,12 @@ class Editor {
   async loadAssets() {
     this.loader = new GameImage();
 
-    const [
-      grass,
-      stone,
-      decor,
-      largeDecor,
-    ] = await Promise.all([
+    const [grass, stone, decor, largeDecor] = await Promise.all([
       this.loader.loadImagesFromFolder("assets/tiles/grass/", 9),
       this.loader.loadImagesFromFolder("assets/tiles/stone/", 9),
       this.loader.loadImagesFromFolder("assets/tiles/decor/", 4),
       this.loader.loadImagesFromFolder("assets/tiles/largeDecor/", 3),
     ]);
-
-    this.playerW = 16;
-    this.playerH = 42;
-    //Animations
-
     this.tileVariantRegistry = {
       grass: grass,
       stone: stone,
@@ -586,26 +636,23 @@ class Editor {
     requestAnimationFrame(() => this.gameloop());
   }
   update(dt) {
-    
+    if(!this.assetLoaded){
+        return;
+    }
+    this.player.update(dt);
   }
   render(ctx) {
     ctx.clearRect(0, 0, this.vCanvasW, this.vCanvasH);
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, this.vCanvasW, this.vCanvasH);
 
-    
-
+    if(!this.assetLoaded){
+        return;
+    }
+    this.player.render(ctx);
     //rendering vCtx into ctx
-    this.ctx.clearRect(0, 0, 250, 250);
-    this.ctx.fillStyle = "grey";
-    this.ctx.fillRect(0, 0, this.canvasW, this.canvasH);
-    this.ctx.drawImage(
-      this.vCanvas,
-      0 + this.shakeX,
-      0 + this.shakeY,
-      this.canvasW,
-      this.canvasH,
-    );
+    this.ctx.clearRect(0, 0, this.canvasW, this.canvasH);
+    this.ctx.drawImage(this.vCanvas, 0, 0, this.canvasW, this.canvasH);
   }
 }
 
