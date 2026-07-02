@@ -77,7 +77,7 @@ class GameButton extends Rect {
     this.text = text;
     this.bgColor = "#369E56";
     this.hoverColor = "#46C26A";
-    this.textColor = "white";
+    this.textColor = "black";
     this.borderColor = "white";
     this.hovered = false;
   }
@@ -93,19 +93,20 @@ class GameButton extends Rect {
     );
   }
   isClicked() {
-    return this.game.globalInputs.attackPressed && this.hovered;
+    return this.game.globalInputs.leftClickPressed && this.hovered;
   }
   render(ctx) {
+    ctx.save();
     ctx.fillStyle = this.hovered ? this.hoverColor : this.bgColor;
     ctx.fillRect(this.x, this.y, this.w, this.h);
-    ctx.lineWidth = 3;
     ctx.strokeStyle = this.borderColor;
     ctx.strokeRect(this.x, this.y, this.w, this.h);
     ctx.fillStyle = this.textColor;
-    ctx.font = "bold 28px Arial";
+    ctx.font = "8px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(this.text, this.x + this.w / 2, this.y + this.h / 2);
+    ctx.restore();
   }
 }
 
@@ -546,7 +547,7 @@ class Pointer {
     this.gridY = Math.floor(this.y / this.tileH);
     this.onGrid = this.game.globalInputs.gridModePressed;
 
-    if (this.game.globalInputs.leftClickPressed) {
+    if (this.game.globalInputs.leftClickPressed && !this.game.button.hovered) {
       if (this.onGrid) {
         this.addOngridTile();
       } else {
@@ -554,6 +555,12 @@ class Pointer {
           this.game.globalInputs.addedOffGridTile = true;
           this.addOffGridTile();
         }
+      }
+    }
+    if (this.game.globalInputs.rightClickPressed && !this.game.button.hovered) {
+      if (this.onGrid) {
+        this.removeOngridTile();
+      } else {
       }
     }
   }
@@ -593,6 +600,9 @@ class Pointer {
       this.x + "," + this.y,
       new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
     );
+  }
+  removeOngridTile() {
+    this.game.tileMap.onGridTiles.delete(this.gridX + "," + this.gridY);
   }
 }
 
@@ -638,6 +648,10 @@ class Editor {
 
     //Pointer
     this.pointer = new Pointer(this, 0, 0, this.camera);
+
+    //ui
+    //currrent Tile button
+    this.button = new GameButton(this, -2, 10, 15, 25, ">");
 
     //main loop dependenciesa
     this.nowMs = performance.now();
@@ -780,6 +794,7 @@ class Editor {
     this.camera.update(dt);
     this.tileMap.update(dt);
     this.pointer.update(dt);
+    this.button.update();
   }
   render(ctx) {
     ctx.clearRect(0, 0, this.vCanvasW, this.vCanvasH);
@@ -833,6 +848,9 @@ class Editor {
       185,
       this.vCanvasH - 10,
     );
+
+    //button
+    this.button.render(ctx);
   }
 }
 
