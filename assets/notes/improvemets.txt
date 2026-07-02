@@ -1,0 +1,39 @@
+# TODO
+
+## 🔴 Critical (Finish Before Release)
+
+* [X] Enemy Indicators
+* [ ] Tutorial Screen
+* [X] Win / Lose Screen Audio
+* [ ] More Waves
+* [ ] New Map Design (Background + Parallax)
+* [ ] Better Cover Image
+* [ ] Playtesting & Bug Fixes
+
+---
+
+## 🟡 High Priority
+
+* [ ] More Card Details
+* [ ] Intro / Outro Dialogue
+* [ ] Particle System
+* [ ] Ambient Sounds (Wind, Birds, etc.)
+
+---
+
+## 🟢 Nice Polish
+
+* [ ] NPC Environment (Birds, Rabbits, Butterflies)
+* [ ] Dynamic Weather (Rain, Snow, Fog)
+* [ ] Day / Night Lighting
+* [ ] More UI Animations
+* [ ] Achievement System
+
+---
+
+## ✨ If There's Still Time
+
+* [ ] Intro / Outro Video
+* [ ] New Enemy Variants
+* [ ] New Cards
+* [ ] Endless Mode
