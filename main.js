@@ -111,8 +111,53 @@ class GameButton extends Rect {
 }
 
 class Menu extends GameButton {
-  constructor(game, x, y, w, h) {
-    super(x, y, w, h);
+  constructor(game, x, y, w, h, text) {
+    super(game, x, y, w, h, text);
+    this.initialX = this.x;
+    this.initialY = this.y;
+    this.isActive = false;
+
+    //palette state
+    this.selectedType = "grass";
+    this.selectedVariant = 0;
+    this.paletteX = 7;
+    this.paletteY = 11;
+    this.paletteTileSize = 32;
+    this.paletteGap = 4;
+    let width = (this.paletteX + this.paletteGap) * this.paletteTileSize;
+    let height = (this.paletteY + this.paletteGap) * this.paletteTileSize;
+    this.paletteRect = new Rect(0,this.initialY+this.h,width,height);
+  }
+  update() {
+    super.update();
+    if (this.isClicked() && !this.game.globalInputs.menuPressHandeled) {
+      this.game.globalInputs.menuPressHandeled = true;
+      this.isActive = !this.isActive;
+    }
+    if (this.isActive) {
+      this.text = "<";
+      this.updateTilePallete();
+    }else{
+      this.text = ">";
+    }
+  }
+  updateTilePallete() {}
+  render(ctx) {
+    super.render(ctx);
+    if (this.isActive) {
+      this.renderTilePallete(ctx);
+    }
+  }
+  renderTilePallete(ctx) {
+    ctx.fillStyle = "rgba(0,255,255,0.2)";
+    ctx.fillRect(this.paletteRect.x,this.paletteRect.y,this.paletteRect.w,this.paletteRect.h);
+    let j = 0;
+    for(const tileType of Object.values(this.game.tileVariantRegistry)){
+      const drawX = this.paletteRect.x + j*(this.paletteTileSize+this.paletteGap);
+      const drawY = this.paletteRect.y + j*(this.paletteTileSize+this.paletteGap);
+        ctx.drawImage(tileType[j],drawX,drawY,this.paletteTileSize,this.paletteTileSize);
+        j+=1;
+    }
   }
 }
 
@@ -151,6 +196,7 @@ class Tile extends PhysicsRect {
     }
   }
 }
+
 class Decor extends PhysicsRect {
   constructor(x, y, w, h, camera, img) {
     super(x, y, w, h);
@@ -178,6 +224,7 @@ class Decor extends PhysicsRect {
     }
   }
 }
+
 class TileMap {
   constructor(game, tileW, tileH, camera) {
     this.game = game;
@@ -359,6 +406,7 @@ class TileMap {
     return this.onGridTiles.get(x + "," + y);
   }
 }
+
 class TileCollisionHandeler {
   constructor(entity, tileW, tileH) {
     this.entity = entity;
@@ -514,6 +562,7 @@ class GameInputs {
     this.gridModePressed = false;
     this.gridModePressHandeled = false;
     this.addedOffGridTile = false;
+    this.menuPressHandeled = false;
     this.mouseX = 0;
     this.mouseY = 0;
   }
@@ -542,6 +591,9 @@ class Pointer {
     this.tileW = this.game.tileMap.tileW;
     this.tileH = this.game.tileMap.tileH;
 
+    //tip rect
+    this.tipRect = new PhysicsRect(0,0,1,1);
+
     //states
     this.onGrid = false;
 
@@ -553,6 +605,9 @@ class Pointer {
   update(dt) {
     this.x = this.game.globalInputs.mouseX - this.camera.camOffsetX;
     this.y = this.game.globalInputs.mouseY - this.camera.camOffsetY;
+
+    this.tipRect.x = this.x;
+    this.tipRect.y = this.y;
 
     this.gridX = Math.floor(this.x / this.tileW);
     this.gridY = Math.floor(this.y / this.tileH);
@@ -572,6 +627,7 @@ class Pointer {
       if (this.onGrid) {
         this.removeOngridTile();
       } else {
+        this.removeOffGridTile();
       }
     }
   }
@@ -648,18 +704,26 @@ class Pointer {
   addOffGridTile() {
     if (this.tileType != null && this.tileVariant != null) {
       this.game.tileMap.offGridTiles.set(
-        this.gridX + "," + this.gridY,
+        this.x + "," + this.y,
         new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, this.img),
       );
     } else {
       this.game.tileMap.offGridTiles.set(
-        this.gridX + "," + this.gridY,
+        this.x + "," + this.y,
         new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
       );
     }
   }
   removeOngridTile() {
     this.game.tileMap.onGridTiles.delete(this.gridX + "," + this.gridY);
+    
+  }
+  removeOffGridTile(){
+    for(const tile of this.game.tileMap.offGridTiles.values()){
+      if(tile.intersects(this.tipRect)){
+        this.game.tileMap.offGridTiles.delete(tile.x + "," + tile.y);
+      }
+    }
   }
 }
 
@@ -708,7 +772,7 @@ class Editor {
 
     //ui
     //currrent Tile button
-    this.button = new GameButton(this, -4, 20, 30, 50, ">");
+    this.button = new Menu(this, -4, 20, 30, 50, ">");
 
     //main loop dependenciesa
     this.nowMs = performance.now();
@@ -748,6 +812,7 @@ class Editor {
       if (e.button === 0) {
         this.globalInputs.leftClickPressed = false;
         this.globalInputs.addedOffGridTile = false;
+        this.globalInputs.menuPressHandeled = false;
       } else if (e.button === 2) {
         this.globalInputs.rightClickPressed = false;
       }
@@ -861,8 +926,6 @@ class Editor {
     if (!this.assetLoaded) {
       return;
     }
-    this.player.render(ctx);
-    this.camera.render(ctx);
     this.tileMap.renderTiles(ctx);
     this.tileMap.renderDecors(ctx);
     this.pointer.render(ctx);
@@ -912,5 +975,6 @@ class Editor {
     this.button.render(ctx);
   }
 }
+
 
 const editor = new Editor();
