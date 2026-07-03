@@ -326,12 +326,6 @@ class TileMap {
     this.offGridTiles = new Map();
     this.onGridTilesData = new Map();
     this.offGridTilesData = new Map();
-    // for (let i = 0; i < 20; i++) {
-    //   this.onGridTiles.set(
-    //     "" + i + ",6",
-    //     new Tile(0 + i * 32, 6 * 32, 32, 32, this.camera, null),
-    //   );
-    // }
     this.onScreenTiles = [];
     this.visibleLeft = 0;
     this.visibleRight = 0;
@@ -747,21 +741,30 @@ class Pointer {
         }
       } else {
         ctx.globalAlpha = 0.5;
+        let width = 0;
+        let height = 0;
+        if(this.game.decorTiles.has(this.tileType)){
+          width = this.img.width * 2;
+          height = this.img.height * 2;
+        }else{
+          width = this.tileW;
+          height = this.tileH;
+        }
         if (this.onGrid) {
           ctx.drawImage(
             this.img,
             this.gridX * this.tileW + this.camera.camOffsetX,
             this.gridY * this.tileH + this.camera.camOffsetY,
-            this.tileW,
-            this.tileH,
+            width,
+            height,
           );
         } else {
           ctx.drawImage(
             this.img,
             this.x + this.camera.camOffsetX,
             this.y + this.camera.camOffsetY,
-            this.tileW,
-            this.tileH,
+            width,
+            height,
           );
         }
         ctx.globalAlpha = 1;
@@ -770,13 +773,21 @@ class Pointer {
   }
   addOngridTile() {
     if (this.tileType != null && this.tileVariant != null) {
+      let width,height;
+      if(this.game.decorTiles.has(this.tileType)){
+          width = this.img.width * 2;
+          height = this.img.height * 2;
+        }else{
+          width = this.tileW;
+          height = this.tileH;
+        }
       this.game.tileMap.onGridTiles.set(
         this.gridX + "," + this.gridY,
         new Tile(
           this.gridX * this.tileW,
           this.gridY * this.tileH,
-          this.tileW,
-          this.tileH,
+          width,
+          height,
           this.camera,
           this.img,
         ),
@@ -787,8 +798,8 @@ class Pointer {
         new Tile(
           this.gridX * this.tileW,
           this.gridY * this.tileH,
-          this.tileW,
-          this.tileH,
+          width,
+          height,
           this.camera,
           null,
         ),
@@ -797,14 +808,22 @@ class Pointer {
   }
   addOffGridTile() {
     if (this.tileType != null && this.tileVariant != null) {
+      let width,height;
+      if(this.game.decorTiles.has(this.tileType)){
+          width = this.img.width * 2;
+          height = this.img.height * 2;
+        }else{
+          width = this.tileW;
+          height = this.tileH;
+        }
       this.game.tileMap.offGridTiles.set(
         this.x + "," + this.y,
-        new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, this.img),
+        new Tile(this.x, this.y, width, height, this.camera, this.img),
       );
     } else {
       this.game.tileMap.offGridTiles.set(
         this.x + "," + this.y,
-        new Tile(this.x, this.y, this.tileW, this.tileH, this.camera, null),
+        new Tile(this.x, this.y, width, height, this.camera, null),
       );
     }
   }
@@ -989,6 +1008,7 @@ class Editor {
       decor: decor,
       largeDecor: largeDecor,
     };
+    this.decorTiles = new Set(["decor", "largeDecor"]);
     //ui
     //currrent Tile button
     this.button = new Menu(this, -4, 20, 30, 50, ">");
@@ -1023,8 +1043,8 @@ class Editor {
     if (!this.assetLoaded) {
       return;
     }
-    this.tileMap.renderTiles(ctx);
     this.tileMap.renderDecors(ctx);
+    this.tileMap.renderTiles(ctx);
     this.pointer.render(ctx);
     //rendering vCtx into ctx
     this.ctx.clearRect(0, 0, this.canvasW, this.canvasH);
