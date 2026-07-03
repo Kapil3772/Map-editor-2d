@@ -120,13 +120,23 @@ class Menu extends GameButton {
     //palette state
     this.selectedType = "grass";
     this.selectedVariant = 0;
-    this.paletteX = 7;
-    this.paletteY = 11;
+    this.selectedGridX = 0;
+    this.selectedGridY = 0;
+    this.paletteX = 9;
+    this.paletteY = 7;
     this.paletteTileSize = 32;
     this.paletteGap = 4;
-    let width = (this.paletteX + this.paletteGap) * this.paletteTileSize;
-    let height = (this.paletteY + this.paletteGap) * this.paletteTileSize;
-    this.paletteRect = new Rect(0,this.initialY+this.h,width,height);
+    let width = (this.paletteTileSize + this.paletteGap) * this.paletteX;
+    let height = (this.paletteTileSize + this.paletteGap) * this.paletteY;
+    this.paletteRect = new Rect(0, this.initialY + this.h, width, height);
+  }
+  paletteContainsPoint(x, y) {
+    return (
+      x >= this.paletteRect.left() &&
+      x <= this.paletteRect.right() &&
+      y >= this.paletteRect.top() &&
+      y <= this.paletteRect.bottom()
+    );
   }
   update() {
     super.update();
@@ -137,11 +147,29 @@ class Menu extends GameButton {
     if (this.isActive) {
       this.text = "<";
       this.updateTilePallete();
-    }else{
+    } else {
       this.text = ">";
     }
   }
-  updateTilePallete() {}
+  updateTilePallete() {
+    this.paletteHovered = this.paletteContainsPoint(
+      this.game.globalInputs.mouseX * 2,
+      this.game.globalInputs.mouseY * 2,
+    );
+    if (this.paletteHovered && this.game.globalInputs.leftClickPressed) {
+      const localX = (this.game.globalInputs.mouseX * 2) - this.paletteRect.x;
+      const localY = (this.game.globalInputs.mouseY * 2) - this.paletteRect.y;
+      this.selectedGridX = Math.floor(
+        localX / (this.paletteTileSize +
+          this.paletteGap),
+      );
+      this.selectedGridY = Math.floor(
+        localY / (this.paletteTileSize +
+          this.paletteGap),
+      );
+      console.log(this.selectedGridX,this.selectedGridY);
+    }
+  }
   render(ctx) {
     super.render(ctx);
     if (this.isActive) {
@@ -150,14 +178,48 @@ class Menu extends GameButton {
   }
   renderTilePallete(ctx) {
     ctx.fillStyle = "rgba(0,255,255,0.2)";
-    ctx.fillRect(this.paletteRect.x,this.paletteRect.y,this.paletteRect.w,this.paletteRect.h);
+    ctx.fillRect(
+      this.paletteRect.x,
+      this.paletteRect.y,
+      this.paletteRect.w,
+      this.paletteRect.h,
+    );
     let j = 0;
-    for(const tileType of Object.values(this.game.tileVariantRegistry)){
-      const drawX = this.paletteRect.x + j*(this.paletteTileSize+this.paletteGap);
-      const drawY = this.paletteRect.y + j*(this.paletteTileSize+this.paletteGap);
-        ctx.drawImage(tileType[j],drawX,drawY,this.paletteTileSize,this.paletteTileSize);
-        j+=1;
+    let i = 0;
+    for (const tileType of Object.values(this.game.tileVariantRegistry)) {
+      for (const img of tileType) {
+        const drawX =
+          this.paletteRect.x + j * (this.paletteTileSize + this.paletteGap);
+        const drawY =
+          this.paletteRect.y + i * (this.paletteTileSize + this.paletteGap);
+        ctx.drawImage(
+          img,
+          drawX,
+          drawY,
+          this.paletteTileSize,
+          this.paletteTileSize,
+        );
+        j = j + 1;
+        if (j == this.paletteX) {
+          i += 1;
+          j = 0;
+        }
+      }
     }
+    // rendering selected rect
+    ctx.strokeStyle = "cyan";
+    const drawX =
+      this.paletteRect.x + ((this.paletteTileSize + this.paletteGap) *
+      this.selectedGridX) - this.paletteGap/2;
+    const drawY =
+      this.paletteRect.y + ((this.paletteTileSize + this.paletteGap) *
+      this.selectedGridY) - this.paletteGap/2;
+    ctx.strokeRect(
+      drawX,
+      drawY,
+      this.paletteTileSize + this.paletteGap,
+      this.paletteTileSize + this.paletteGap,
+    );
   }
 }
 
@@ -592,7 +654,7 @@ class Pointer {
     this.tileH = this.game.tileMap.tileH;
 
     //tip rect
-    this.tipRect = new PhysicsRect(0,0,1,1);
+    this.tipRect = new PhysicsRect(0, 0, 1, 1);
 
     //states
     this.onGrid = false;
@@ -613,7 +675,11 @@ class Pointer {
     this.gridY = Math.floor(this.y / this.tileH);
     this.onGrid = this.game.globalInputs.gridModePressed;
 
-    if (this.game.globalInputs.leftClickPressed && !this.game.button.hovered) {
+    if (
+      this.game.globalInputs.leftClickPressed &&
+      !this.game.button.hovered &&
+      !this.game.button.paletteHovered
+    ) {
       if (this.onGrid) {
         this.addOngridTile();
       } else {
@@ -716,14 +782,17 @@ class Pointer {
   }
   removeOngridTile() {
     this.game.tileMap.onGridTiles.delete(this.gridX + "," + this.gridY);
-    
   }
-  removeOffGridTile(){
-    for(const tile of this.game.tileMap.offGridTiles.values()){
-      if(tile.intersects(this.tipRect)){
+  removeOffGridTile() {
+    for (const tile of this.game.tileMap.offGridTiles.values()) {
+      if (tile.intersects(this.tipRect)) {
         this.game.tileMap.offGridTiles.delete(tile.x + "," + tile.y);
       }
     }
+  }
+  changeSelectedTile(tileType, variant) {
+    this.tileType = tileType;
+    this.variant = variant;
   }
 }
 
@@ -975,6 +1044,5 @@ class Editor {
     this.button.render(ctx);
   }
 }
-
 
 const editor = new Editor();
