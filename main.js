@@ -88,8 +88,8 @@ class GameButton extends Rect {
   }
   update() {
     this.hovered = this.containsPoint(
-      this.game.globalInputs.mouseX * 2,
-      this.game.globalInputs.mouseY * 2,
+      this.game.globalInputs.mouseX * this.game.canvasScaleFactor,
+      this.game.globalInputs.mouseY * this.game.canvasScaleFactor,
     );
   }
   isClicked() {
@@ -169,12 +169,12 @@ class Menu extends GameButton {
   }
   updateTilePallete() {
     this.paletteHovered = this.paletteContainsPoint(
-      this.game.globalInputs.mouseX * 2,
-      this.game.globalInputs.mouseY * 2,
+      this.game.globalInputs.mouseX * this.game.canvasScaleFactor,
+      this.game.globalInputs.mouseY * this.game.canvasScaleFactor,
     );
     if (this.paletteHovered && this.game.globalInputs.leftClickPressed) {
-      const localX = this.game.globalInputs.mouseX * 2 - this.paletteRect.x;
-      const localY = this.game.globalInputs.mouseY * 2 - this.paletteRect.y;
+      const localX = this.game.globalInputs.mouseX * this.game.canvasScaleFactor - this.paletteRect.x;
+      const localY = this.game.globalInputs.mouseY * this.game.canvasScaleFactor - this.paletteRect.y;
       this.selectedGridX = Math.floor(
         localX / (this.paletteTileSize + this.paletteGap),
       );
@@ -465,16 +465,16 @@ class TileMap {
   updateOnScreenTile() {
     this.onScreenTiles = [];
     this.visibleLeft = Math.floor(
-      (this.camera.x - this.game.vCanvasW / 2) / this.tileW,
+      (this.camera.x - this.game.gameRenderingRect.w / 2) / this.tileW,
     );
     this.visibleRight = Math.ceil(
-      (this.camera.x + this.game.vCanvasW / 2) / this.tileW,
+      (this.camera.x + this.game.gameRenderingRect.w / 2) / this.tileW,
     );
     this.visibleTop = Math.floor(
-      (this.camera.y - this.game.vCanvasH / 2) / this.tileH,
+      (this.camera.y - this.game.gameRenderingRect.h / 2) / this.tileH,
     );
     this.visibleBottom = Math.ceil(
-      (this.camera.y + this.game.vCanvasH / 2) / this.tileH,
+      (this.camera.y + this.game.gameRenderingRect.h / 2) / this.tileH,
     );
     for (let i = this.visibleLeft; i <= this.visibleRight; i++) {
       for (let j = this.visibleTop; j <= this.visibleBottom; j++) {
@@ -682,7 +682,7 @@ class Pointer {
     this.onGrid = false;
 
     //image
-    this.tileType = "grass";
+    this.tileType = "floorTiles";
     this.tileVariant = 0;
     this.img = null;
   }
@@ -744,8 +744,8 @@ class Pointer {
         let width = 0;
         let height = 0;
         if(this.game.decorTiles.has(this.tileType)){
-          width = this.img.width * 2;
-          height = this.img.height * 2;
+          width = this.img.width * this.game.canvasScaleFactor;
+          height = this.img.height * this.game.canvasScaleFactor;
         }else{
           width = this.tileW;
           height = this.tileH;
@@ -775,8 +775,8 @@ class Pointer {
     if (this.tileType != null && this.tileVariant != null) {
       let width,height;
       if(this.game.decorTiles.has(this.tileType)){
-          width = this.img.width * 2;
-          height = this.img.height * 2;
+          width = this.img.width * this.game.canvasScaleFactor;
+          height = this.img.height * this.game.canvasScaleFactor;
         }else{
           width = this.tileW;
           height = this.tileH;
@@ -810,8 +810,8 @@ class Pointer {
     if (this.tileType != null && this.tileVariant != null) {
       let width,height;
       if(this.game.decorTiles.has(this.tileType)){
-          width = this.img.width * 2;
-          height = this.img.height * 2;
+          width = this.img.width  * this.game.canvasScaleFactor;
+          height = this.img.height * this.game.canvasScaleFactor;
         }else{
           width = this.tileW;
           height = this.tileH;
@@ -860,15 +860,17 @@ class Editor {
     this.vCanvas.height = this.vCanvasH;
     this.vCtx = this.vCanvas.getContext("2d");
     this.vCtx.imageSmoothingEnabled = false;
+
+    this.canvasScaleFactor = this.canvasW/this.vCanvasW;
     this.init();
   }
   async init() {
     //game inputs
     this.gameRenderingRect = new Rect(
-      -50,
-      -50,
-      this.vCanvasW + 100,
-      this.vCanvasH + 100,
+      -400,
+      -400,
+      this.vCanvasW + 800,
+      this.vCanvasH + 800,
     );
     this.globalInputs = new GameInputs();
     this.bindInputs();
@@ -996,19 +998,20 @@ class Editor {
   }
   async loadAssets() {
     this.loader = new GameImage();
-    const [grass, stone, decor, largeDecor] = await Promise.all([
+    const [grass, stone, decor, largeDecor, floorTiles, spawner] = await Promise.all([
       this.loader.loadImagesFromFolder("assets/tiles/grass/", 9),
       this.loader.loadImagesFromFolder("assets/tiles/stone/", 9),
       this.loader.loadImagesFromFolder("assets/tiles/decor/", 4),
-      this.loader.loadImagesFromFolder("assets/tiles/largeDecor/", 3),
+      this.loader.loadImagesFromFolder("assets/tiles/largeDecor/", 13),
+      this.loader.loadImagesFromFolder("assets/tiles/floorTiles/", 43),
+      this.loader.loadImagesFromFolder("assets/tiles/spawners/", 2),
     ]);
     this.tileVariantRegistry = {
-      grass: grass,
-      stone: stone,
-      decor: decor,
-      largeDecor: largeDecor,
+      floorTiles : floorTiles,
+      largeDecor : largeDecor,
+      spawner : spawner,
     };
-    this.decorTiles = new Set(["decor", "largeDecor"]);
+    this.decorTiles = new Set(["decor", "largeDecor", "spawner"]);
     //ui
     //currrent Tile button
     this.button = new Menu(this, -4, 20, 30, 50, ">");
@@ -1055,8 +1058,8 @@ class Editor {
   }
   renderWorldAxis(ctx) {
     ctx.strokeStyle = "cyan";
-    const vx = this.camera.camOffsetX * 2;
-    const vy = this.camera.camOffsetY * 2;
+    const vx = this.camera.camOffsetX * this.canvasScaleFactor;
+    const vy = this.camera.camOffsetY * this.canvasScaleFactor;
     ctx.beginPath();
     ctx.moveTo(vx, vy - 5000);
     ctx.lineTo(vx, vy + 10000);
