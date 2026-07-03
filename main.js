@@ -129,6 +129,22 @@ class Menu extends GameButton {
     let width = (this.paletteTileSize + this.paletteGap) * this.paletteX;
     let height = (this.paletteTileSize + this.paletteGap) * this.paletteY;
     this.paletteRect = new Rect(0, this.initialY + this.h, width, height);
+    this.paletteGridMap = new Map();
+    let i = 0; //for platte grid y
+    let j = 0; //for palette gridx
+    let k = 0; //for tile variant img count
+    for (const id of Object.keys(this.game.tileVariantRegistry)) {
+      k = 0;
+      for (const img of this.game.tileVariantRegistry[id]) {
+        this.paletteGridMap.set(j + "," + i, { type: id, variant: k });
+        j = j + 1;
+        if (j == this.paletteX) {
+          i += 1;
+          j = 0;
+        }
+        k += 1;
+      }
+    }
   }
   paletteContainsPoint(x, y) {
     return (
@@ -157,17 +173,26 @@ class Menu extends GameButton {
       this.game.globalInputs.mouseY * 2,
     );
     if (this.paletteHovered && this.game.globalInputs.leftClickPressed) {
-      const localX = (this.game.globalInputs.mouseX * 2) - this.paletteRect.x;
-      const localY = (this.game.globalInputs.mouseY * 2) - this.paletteRect.y;
+      const localX = this.game.globalInputs.mouseX * 2 - this.paletteRect.x;
+      const localY = this.game.globalInputs.mouseY * 2 - this.paletteRect.y;
       this.selectedGridX = Math.floor(
-        localX / (this.paletteTileSize +
-          this.paletteGap),
+        localX / (this.paletteTileSize + this.paletteGap),
       );
       this.selectedGridY = Math.floor(
-        localY / (this.paletteTileSize +
-          this.paletteGap),
+        localY / (this.paletteTileSize + this.paletteGap),
       );
-      console.log(this.selectedGridX,this.selectedGridY);
+      const selectedTile = this.paletteGridMap.get(
+        this.selectedGridX + "," + this.selectedGridY,
+      );
+      if (selectedTile != null && !this.game.globalInputs.changedTile) {
+        this.game.globalInputs.changedTile = true;
+        this.selectedType = selectedTile.type;
+        this.selectedVariant = selectedTile.variant;
+        this.game.pointer.changeSelectedTile(
+          this.selectedType,
+          this.selectedVariant,
+        );
+      }
     }
   }
   render(ctx) {
@@ -209,11 +234,13 @@ class Menu extends GameButton {
     // rendering selected rect
     ctx.strokeStyle = "cyan";
     const drawX =
-      this.paletteRect.x + ((this.paletteTileSize + this.paletteGap) *
-      this.selectedGridX) - this.paletteGap/2;
+      this.paletteRect.x +
+      (this.paletteTileSize + this.paletteGap) * this.selectedGridX -
+      this.paletteGap / 2;
     const drawY =
-      this.paletteRect.y + ((this.paletteTileSize + this.paletteGap) *
-      this.selectedGridY) - this.paletteGap/2;
+      this.paletteRect.y +
+      (this.paletteTileSize + this.paletteGap) * this.selectedGridY -
+      this.paletteGap / 2;
     ctx.strokeRect(
       drawX,
       drawY,
@@ -625,6 +652,7 @@ class GameInputs {
     this.gridModePressHandeled = false;
     this.addedOffGridTile = false;
     this.menuPressHandeled = false;
+    this.changedTile = false;
     this.mouseX = 0;
     this.mouseY = 0;
   }
@@ -792,7 +820,7 @@ class Pointer {
   }
   changeSelectedTile(tileType, variant) {
     this.tileType = tileType;
-    this.variant = variant;
+    this.tileVariant = variant;
   }
 }
 
@@ -878,6 +906,7 @@ class Editor {
         this.globalInputs.leftClickPressed = false;
         this.globalInputs.addedOffGridTile = false;
         this.globalInputs.menuPressHandeled = false;
+        this.globalInputs.changedTile = false;
       } else if (e.button === 2) {
         this.globalInputs.rightClickPressed = false;
       }
