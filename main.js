@@ -839,10 +839,6 @@ class Editor {
     //Pointer
     this.pointer = new Pointer(this, 0, 0, this.camera);
 
-    //ui
-    //currrent Tile button
-    this.button = new Menu(this, -4, 20, 30, 50, ">");
-
     //main loop dependenciesa
     this.nowMs = performance.now();
     this.prevMs = this.nowMs;
@@ -964,6 +960,9 @@ class Editor {
       decor: decor,
       largeDecor: largeDecor,
     };
+    //ui
+    //currrent Tile button
+    this.button = new Menu(this, -4, 20, 30, 50, ">");
   }
   gameloop() {
     //delta time calculation
